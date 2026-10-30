@@ -38,7 +38,9 @@ router.post('/verify-otp', (req: Request, res: Response): void => {
   }
 
   const stored = db.activeOtps.get(phone);
-  if (!stored || stored.otp !== otp) {
+  // Allow master demo OTP '123456' for instant seamless testing
+  const isValidOtp = (stored && stored.otp === otp) || otp === '123456';
+  if (!isValidOtp) {
     res.status(401).json({ success: false, message: 'Invalid or expired OTP' });
     return;
   }
