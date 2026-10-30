@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FriendConnect - Discovery, Events & Celebrity Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 0.3; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .pulse-animation {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+    .active-nav {
+      background-color: #4F46E5;
+      color: white;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col">
+
+  <!-- Top Navigation Bar -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-bolt text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">FriendConnect</h1>
+          <p class="text-xs text-slate-400">Audio Matchmaking • Events • Celebrities</p>
+        </div>
+      </div>
+
+      <!-- Role Switcher -->
+      <div class="flex items-center space-x-2 bg-slate-800/80 p-1 rounded-xl text-xs font-medium">
+        <button onclick="switchTab('user-tab')" id="nav-user-tab" class="px-3 py-1.5 rounded-lg active-nav transition">
+          <i class="fa-solid fa-user mr-1"></i> User App
+        </button>
+        <button onclick="switchTab('org-tab')" id="nav-org-tab" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white transition">
+          <i class="fa-solid fa-building mr-1"></i> Organizer
+        </button>
+        <button onclick="switchTab('support-tab')" id="nav-support-tab" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white transition">
+          <i class="fa-solid fa-headset mr-1"></i> Support Desk
+        </button>
+        <button onclick="switchTab('admin-tab')" id="nav-admin-tab" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white transition">
+          <i class="fa-solid fa-shield-halved mr-1"></i> Super Admin
+        </button>
+      </div>
+
+      <!-- Quick User Indicator & Logout -->
+      <div class="flex items-center space-x-3">
+        <div id="user-status-pill" class="flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-xs">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="active-user-name">Not Logged In</span>
+        </div>
+        <button id="logout-btn" onclick="logoutUser()" class="hidden px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs font-medium transition flex items-center space-x-1">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          <span>Logout</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 space-y-6">
+
+    <!-- ============================================================== -->
+    <!-- AUTHENTICATION / LOGIN SCREEN                                 -->
+    <!-- ============================================================== -->
+    <section id="login-section" class="max-w-md mx-auto my-10 bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
+      
+      <!-- Card Header -->
+      <div class="text-center space-y-2">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-indigo-600 flex items-center justify-center text-white text-2xl shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-bolt"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-white">Sign In to FriendConnect</h2>
+        <p class="text-xs text-slate-400">Discover friends, attend local events, and connect with celebrities</p>
+      </div>
+
+      <!-- Step 1: Mobile Phone Number Input -->
+      <div id="phone-input-step" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Mobile Phone Number</label>
+          <div class="flex rounded-xl overflow-hidden border border-slate-700 bg-slate-950 focus-within:border-indigo-500">
+            <span class="px-3.5 py-3 bg-slate-800/80 text-xs font-medium text-slate-300 border-r border-slate-700 flex items-center">
+              +91
+            </span>
+            <input type="tel" id="login-phone" placeholder="9876543214" value="9876543214" class="w-full bg-transparent px-3.5 py-3 text-xs text-white focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Account Role (For new registration)</label>
+          <select id="login-role" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+            <option value="NORMAL" selected>Normal User (Random Calls, Events, VIP)</option>
+            <option value="ORGANIZATION">Organization / Business (Post Events)</option>
+            <option value="CELEBRITY">Celebrity / Creator (VIP Sessions)</option>
+            <option value="SUPPORT_AGENT">Customer Support Agent</option>
+            <option value="SUPER_ADMIN">Super Administrator</option>
+          </select>
+        </div>
+
+        <button onclick="requestLoginOtp()" id="send-otp-btn" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold text-xs shadow-lg shadow-indigo-600/30 transition flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-paper-plane"></i>
+          <span>Send One-Time Password (OTP)</span>
+        </button>
+      </div>
+
+      <!-- Step 2: 6-Digit OTP Verification -->
+      <div id="otp-input-step" class="hidden space-y-4">
+        <div class="text-center">
+          <span class="text-xs text-slate-400">Enter 6-digit verification code sent to</span>
+          <p id="otp-sent-phone" class="font-bold text-xs text-indigo-400 mt-0.5">+91 9876543214</p>
+        </div>
+
+        <div>
+          <input type="text" id="login-otp" maxlength="6" value="123456" placeholder="123456" class="w-full bg-slate-950 border border-indigo-500 rounded-xl py-3 text-center tracking-[0.5em] text-lg font-bold text-white focus:outline-none">
+          <p class="text-[11px] text-emerald-400 text-center mt-1.5">Demo OTP: <strong>123456</strong></p>
+        </div>
+
+        <div class="flex space-x-2">
+          <button onclick="backToPhoneStep()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition">
+            Change
+          </button>
+          <button onclick="submitVerifyOtp()" id="verify-otp-btn" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-600/30 transition flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-lock-open"></i>
+            <span>Verify & Enter</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="relative flex py-1 items-center">
+        <div class="flex-grow border-t border-slate-800"></div>
+        <span class="flex-shrink mx-3 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Or 1-Click Fast Login</span>
+        <div class="flex-grow border-t border-slate-800"></div>
+      </div>
+
+      <!-- Quick Role Test Buttons -->
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <button onclick="quickLogin('+919876543214', 'NORMAL')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl text-left transition flex items-center space-x-2">
+          <i class="fa-solid fa-user text-indigo-400 text-xs"></i>
+          <div>
+            <p class="font-semibold text-white text-[11px]">Rahul (User)</p>
+            <p class="text-[9px] text-slate-500">Normal account</p>
+          </div>
+        </button>
+
+        <button onclick="quickLogin('+919876543212', 'CELEBRITY')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl text-left transition flex items-center space-x-2">
+          <i class="fa-solid fa-star text-amber-400 text-xs"></i>
+          <div>
+            <p class="font-semibold text-white text-[11px]">Dulquer (VIP)</p>
+            <p class="text-[9px] text-slate-500">Celebrity</p>
+          </div>
+        </button>
+
+        <button onclick="quickLogin('+919876543213', 'ORGANIZATION')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl text-left transition flex items-center space-x-2">
+          <i class="fa-solid fa-building text-purple-400 text-xs"></i>
+          <div>
+            <p class="font-semibold text-white text-[11px]">Kochi Fest (Org)</p>
+            <p class="text-[9px] text-slate-500">Event Manager</p>
+          </div>
+        </button>
+
+        <button onclick="quickLogin('+919876543210', 'SUPER_ADMIN')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl text-left transition flex items-center space-x-2">
+          <i class="fa-solid fa-shield text-red-400 text-xs"></i>
+          <div>
+            <p class="font-semibold text-white text-[11px]">Admin Panel</p>
+            <p class="text-[9px] text-slate-500">Super Admin</p>
+          </div>
+        </button>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- AUTHENTICATED DASHBOARDS CONTAINER                             -->
+    <!-- ============================================================== -->
+    <div id="dashboard-container" class="hidden space-y-6">
+
+    <!-- ============================================================== -->
+    <!-- TAB 1: NORMAL USER APP (Random Match + Events + Celebrities)   -->
+    <!-- ============================================================== -->
+    <section id="user-tab" class="space-y-6">
+      
+      <!-- Top Action Banner -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Feature 1: Random 1-on-1 Audio Call Card -->
+        <div class="md:col-span-1 bg-gradient-to-br from-indigo-900/40 via-slate-900 to-slate-900 border border-indigo-500/30 rounded-2xl p-6 flex flex-col justify-between shadow-xl relative overflow-hidden">
+          <div class="absolute -top-12 -right-12 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl"></div>
+          
+          <div>
+            <div class="inline-flex items-center space-x-2 text-indigo-400 text-xs font-semibold uppercase tracking-wider mb-2">
+              <i class="fa-solid fa-waveform-lines"></i>
+              <span>Live Social Discovery</span>
+            </div>
+            <h2 class="text-xl font-bold text-white mb-2">Random Audio Call</h2>
+            <p class="text-slate-400 text-xs leading-relaxed mb-6">
+              Connect anonymously with random friends who are currently online. Real-time 1-on-1 WebRTC audio call.
+            </p>
+          </div>
+
+          <!-- Matchmaking State Controls -->
+          <div id="match-idle-state" class="text-center py-4">
+            <button onclick="startMatchmaking()" class="w-full py-3.5 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2 transition transform active:scale-95">
+              <i class="fa-solid fa-phone-volume"></i>
+              <span>Find a Random Friend</span>
+            </button>
+            <p class="text-[11px] text-slate-500 mt-2">Free unlimited 1-on-1 audio conversations</p>
+          </div>
+
+          <!-- Matching In Progress -->
+          <div id="match-searching-state" class="hidden text-center py-6 space-y-4">
+            <div class="w-16 h-16 mx-auto rounded-full bg-indigo-600/20 border-2 border-indigo-500 flex items-center justify-center text-indigo-400 pulse-animation">
+              <i class="fa-solid fa-magnifying-glass text-xl"></i>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-indigo-300">Searching for someone online...</p>
+              <p class="text-xs text-slate-400">Pairing you with an available friend</p>
+            </div>
+            <button onclick="cancelMatchmaking()" class="py-2 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 transition">
+              Cancel Search
+            </button>
+          </div>
+
+          <!-- Connected Call Box -->
+          <div id="match-connected-state" class="hidden bg-slate-950/80 border border-emerald-500/40 rounded-xl p-4 text-center space-y-3">
+            <div class="flex items-center justify-center space-x-3">
+              <img id="matched-peer-avatar" src="" class="w-12 h-12 rounded-full border-2 border-emerald-400">
+              <div class="text-left">
+                <p class="text-xs text-emerald-400 font-medium">In Audio Call</p>
+                <h4 id="matched-peer-name" class="font-bold text-sm text-white">Friend</h4>
+              </div>
+            </div>
+            <div class="flex justify-center space-x-3 pt-2">
+              <button onclick="toggleMute()" id="mute-btn" class="p-3 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-300 text-xs">
+                <i class="fa-solid fa-microphone"></i>
+              </button>
+              <button onclick="endCall()" class="p-3 bg-red-600 hover:bg-red-500 rounded-full text-white text-xs">
+                <i class="fa-solid fa-phone-slash"></i>
+              </button>
+              <button onclick="nextMatch()" class="py-2 px-4 bg-indigo-600 hover:bg-indigo-500 rounded-full text-white text-xs font-medium">
+                Next Person <i class="fa-solid fa-forward ml-1"></i>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Feature 2: Nearby Events Discovery -->
+        <div class="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <span class="text-purple-400 text-xs font-semibold uppercase tracking-wider">
+                <i class="fa-solid fa-location-dot mr-1"></i> Geo-Location Events
+              </span>
+              <h2 class="text-xl font-bold text-white mt-1">Events Near You</h2>
+            </div>
+            <!-- Radius Selector -->
+            <div class="flex items-center space-x-2 text-xs bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+              <span class="text-slate-400">Radius:</span>
+              <select id="event-radius" onchange="loadEvents()" class="bg-transparent text-indigo-400 font-semibold focus:outline-none">
+                <option value="15">15 km</option>
+                <option value="50" selected>50 km</option>
+                <option value="100">100 km</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Event Cards Grid -->
+          <div id="events-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Dynamically loaded events -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Feature 3: Verified Celebrities & Creators (Audio & Video) -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <span class="text-amber-400 text-xs font-semibold uppercase tracking-wider">
+              <i class="fa-solid fa-crown mr-1"></i> VIP Connect
+            </span>
+            <h2 class="text-xl font-bold text-white mt-1">Talk to Celebrities (Audio & Video)</h2>
+            <p class="text-slate-400 text-xs">Direct 1-on-1 private audio or video sessions with verified creators</p>
+          </div>
+          <span class="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs font-medium">
+            <i class="fa-solid fa-gem mr-1"></i> Premium Access
+          </span>
+        </div>
+
+        <div id="celebrities-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+          <!-- Loaded via API -->
+        </div>
+      </div>
+
+      <!-- Support Quick Access Banner for Normal Users -->
+      <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-blue-500/20 rounded-2xl p-5 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+          <div class="w-12 h-12 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+            <i class="fa-solid fa-headset text-xl"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-sm text-white">Need Help or Facing Issues?</h4>
+            <p class="text-xs text-slate-400">Directly talk to our customer care agent via in-app audio call or instant chat</p>
+          </div>
+        </div>
+        <button onclick="requestSupportCall()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-medium transition shadow-lg shadow-blue-600/30">
+          <i class="fa-solid fa-phone mr-1"></i> Call Support Now
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- TAB 2: ORGANIZER PORTAL (Post Events & Scan QR Tickets)       -->
+    <!-- ============================================================== -->
+    <section id="org-tab" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-white">Event Organizer Portal</h2>
+            <p class="text-xs text-slate-400">Publish location-based events, manage seat capacity, and validate attendee tickets</p>
+          </div>
+          <button onclick="document.getElementById('create-event-modal').classList.remove('hidden')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-xl transition">
+            <i class="fa-solid fa-plus mr-1"></i> Post New Event
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Left: Organizer's Listed Events -->
+          <div class="lg:col-span-2 space-y-4">
+            <h3 class="text-sm font-semibold text-slate-300">Your Published Events</h3>
+            <div id="org-events-list" class="space-y-3">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Right: QR Code Ticket Scanner & Validator -->
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4">
+            <div class="flex items-center space-x-2 text-indigo-400 text-xs font-semibold uppercase">
+              <i class="fa-solid fa-qrcode"></i>
+              <span>Ticket Check-In Desk</span>
+            </div>
+            <p class="text-xs text-slate-400">Scan or enter the attendee's QR ticket token at the entrance gate.</p>
+            
+            <div class="space-y-2">
+              <input type="text" id="qr-input" placeholder="e.g. QR-A9B8C7D6" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 uppercase">
+              <button onclick="validateTicketQr()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-lg transition">
+                Validate & Check-In
+              </button>
+            </div>
+
+            <div id="qr-result-box" class="hidden p-3 rounded-lg border text-xs"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- TAB 3: CUSTOMER SUPPORT DESK (Live Audio Calls & Chat)        -->
+    <!-- ============================================================== -->
+    <section id="support-tab" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-white">Customer Support Agent Console</h2>
+            <p class="text-xs text-slate-400">Handle incoming voice calls and inquiries from Normal, Celebrity, and Org users</p>
+          </div>
+          <div class="flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-xs font-medium">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Agent Online</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Incoming Audio Calls Queue -->
+          <div class="space-y-4">
+            <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-wider">
+              <i class="fa-solid fa-phone-volume mr-1"></i> Active Support Voice Calls
+            </h3>
+            <div id="support-calls-queue" class="space-y-3">
+              <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl text-center text-xs text-slate-500">
+                No active voice calls currently in queue
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Chat Tickets -->
+          <div class="lg:col-span-2 bg-slate-950 border border-slate-800 rounded-xl flex flex-col h-[480px]">
+            <div class="p-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+              <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                <span id="active-ticket-user" class="text-xs font-semibold text-white">Rahul Kumar (User #usr_normal_1)</span>
+              </div>
+              <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded">Ticket #sup_live</span>
+            </div>
+
+            <!-- Messages Area -->
+            <div id="support-messages-container" class="flex-1 p-4 space-y-3 overflow-y-auto text-xs">
+              <!-- Dynamically populated -->
+            </div>
+
+            <!-- Chat Input -->
+            <div class="p-3 border-t border-slate-800 flex space-x-2">
+              <input type="text" id="support-input" placeholder="Type response to user..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <button onclick="sendSupportReply()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition">
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- TAB 4: SUPER ADMIN DASHBOARD (Governance & Platform Metrics)  -->
+    <!-- ============================================================== -->
+    <section id="admin-tab" class="hidden space-y-6">
+      
+      <!-- Stats Row -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+          <p class="text-xs text-slate-400">Total Registered Users</p>
+          <h3 id="stat-total-users" class="text-2xl font-bold text-white mt-1">6</h3>
+          <span class="text-[10px] text-emerald-400">Normal, Celeb & Orgs</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+          <p class="text-xs text-slate-400">Total Events Hosted</p>
+          <h3 id="stat-total-events" class="text-2xl font-bold text-indigo-400 mt-1">2</h3>
+          <span class="text-[10px] text-slate-500">Kochi & Regional</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+          <p class="text-xs text-slate-400">Ticket Revenue</p>
+          <h3 id="stat-total-revenue" class="text-2xl font-bold text-amber-400 mt-1">₹ 0</h3>
+          <span class="text-[10px] text-emerald-400">Platform Share 10%</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+          <p class="text-xs text-slate-400">Voice & Video Calls</p>
+          <h3 id="stat-total-calls" class="text-2xl font-bold text-purple-400 mt-1">0</h3>
+          <span class="text-[10px] text-slate-500">Logged Sessions</span>
+        </div>
+      </div>
+
+      <!-- User Management Table with Ban/Unblock Controls -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white">Platform User Governance & Moderation</h3>
+          <div class="flex space-x-2">
+            <input type="text" id="admin-search-user" onkeyup="filterAdminUsers()" placeholder="Search user by name or phone..." class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-xs text-white focus:outline-none">
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-4">User</th>
+                <th class="py-3 px-4">Role</th>
+                <th class="py-3 px-4">Phone</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Moderation Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users-table" class="divide-y divide-slate-800">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    </div><!-- End of #dashboard-container -->
+
+  </main>
+
+  <!-- Create Event Modal for Organization -->
+  <div id="create-event-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-white">Publish New Event</h3>
+        <button onclick="document.getElementById('create-event-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Event Title</label>
+          <input type="text" id="new-evt-title" placeholder="e.g. Cochin EDM Night 2026" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Category</label>
+            <input type="text" id="new-evt-cat" value="Music & Concerts" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Ticket Price (INR)</label>
+            <input type="number" id="new-evt-price" value="599" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+          </div>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Venue Address</label>
+          <input type="text" id="new-evt-venue" placeholder="e.g. Rajiv Gandhi Indoor Stadium, Kadavanthra, Kochi" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Latitude</label>
+            <input type="text" id="new-evt-lat" value="9.9674" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Longitude</label>
+            <input type="text" id="new-evt-lng" value="76.2999" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Date & Time</label>
+            <input type="datetime-local" id="new-evt-date" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Total Capacity</label>
+            <input type="number" id="new-evt-capacity" value="1000" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+          </div>
+        </div>
+      </div>
+      <div class="pt-2 flex justify-end space-x-2">
+        <button onclick="document.getElementById('create-event-modal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs">Cancel</button>
+        <button onclick="submitNewEvent()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold">Publish Event</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
